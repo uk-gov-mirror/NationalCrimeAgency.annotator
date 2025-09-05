@@ -1,0 +1,7 @@
+{
+  "prefix": "annotator",
+  "paths": {
+    "annotator": "."
+  },
+  "translations": ["translations/ja-JP.json"]
+}

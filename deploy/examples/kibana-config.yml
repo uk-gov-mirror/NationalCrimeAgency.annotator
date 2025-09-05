@@ -1,0 +1,51 @@
+logging:
+  loggers:
+    - name: plugins.annotator
+      level: debug
+
+annotator:
+  enabled: true
+  docViews:  # Tabs within a Discover Datatable Flyout
+    - title: Tags  # Title displayed within the Discover DocView flyout
+      order: 1  # Ordered position the tab within the flyout, e.g. '1' ensure it appears before all other tabs
+      fields:  # One or more annotations to include within this tab
+        - metadata.annotations
+
+  annotations:  # One or more annotations
+    - field: metadata.annotations  # Field into which annotations will be saved
+      tags:
+          # Example of multi-class (exclusive) classification using radio input
+        - name: Sentiment  
+          color: '#D36086'
+          controlType: radio
+          iconType: crosshairs
+          children:
+            - name: Very Positive
+            - name: Positive
+            - name: Neutral
+            - name: Negative
+            - name: Very Negative
+
+          # Example of two-class (binary) classification using radio input
+        - name: Flagged
+          controlType: radio
+          color: primary
+          iconType: flag
+          children:
+            - name: Flagged
+            - name: Unflagged
+
+          # Example of free text notes field
+        - name: Notes
+          controlType: text 
+
+          # Example multi-label classification
+        - name: Tags
+          color: '#D6BF57'
+          iconType: bullseye
+          children:
+            - name: 1 day
+            - name: 3 days
+            - name: 1 week
+            - name: 1 month
+            - name: 1+ months

@@ -1,0 +1,30 @@
+{
+  "properties": {
+    "metadata.annotations": {
+      "type": "nested",
+      "properties": {
+        "created_timestamp": {
+          "type": "date"
+        },
+        "created_username": {
+          "type": "keyword"
+        },
+        "feature_category": {
+          "type": "keyword"
+        },
+        "feature_name": {
+          "type": "keyword"
+        },
+        "feature_comment": {
+          "type": "text"
+        },
+        "source_type": {
+          "type": "keyword"
+        },
+        "source_name": {
+          "type": "keyword"
+        }
+      }
+    }
+  }
+}
