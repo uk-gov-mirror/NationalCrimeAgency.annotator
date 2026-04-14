@@ -22,7 +22,7 @@ by configuring a runtime field which uses the included Custom Field Formatter.
 
 Before attempting to use annotations, each respective index must define a nested mapping for any annotation fields.
 
-> Tested on Kibana 8.17.1, this plugin makes use of Kibana APIs and internals which may change between versions.
+> Tested on Kibana 8.19.12, this plugin makes use of Kibana APIs and internals which may change between versions.
 
 This plugin was created based on a demonstrator developed by a consultant at Elastic.
 
@@ -42,11 +42,6 @@ This plugin was created based on a demonstrator developed by a consultant at Ela
 * Features:
   * **Multiselect**: Apply annotations to multiple documents at the same time
   * **Observers**: Broadcast annotation changes can also be consumed outside Elastic components
-* Tests:
-  * Unit
-  * Functional
-  * Accessibility
-  * Packaging
 
 ## Configuration
 
@@ -90,7 +85,7 @@ One or more annotation field definitions:
 * `debug`: (Optional) Controls the verbosity of console logging within UI components, defaults to `false` when Kibana is
   not running in dev mode
 
-## Field Mapping
+### Field Mapping
 
 All annotation fields **must** be explicitly mapped within indexes.
 Due to limited support within Discover for rendering nested field types,
@@ -104,7 +99,7 @@ nested annotations.
 
 Note, if configuring multiple annotation fields, they must each have their own corresponding field and runtime mappings.
 
-### Data View: Runtime field
+#### Data View: Runtime field
 
 Define an index with the appropriate field mapping,
 example [deploy/examples/index-mapping.json](deploy/examples/index-mapping.json),
@@ -118,7 +113,7 @@ then add a runtime field to the corresponding Data View:
 
 In practice, values for runtime fields configured on Data Views are calculated for each search request.
 
-### Index: Runtime field
+#### Index: Runtime field
 
 Define an index with the appropriate field mapping including a runtime field,
 example [deploy/examples/index-mapping-with-runtime-field.json](deploy/examples/index-mapping-with-runtime-field.json).
@@ -163,13 +158,13 @@ nvm use
 Install and configure dependencies such as `node_modules`:
 
 ```shell
-yarn kbn bootstrap
+yarn install
 ```
 
 Automatically generate the UI artefacts of the plugin during development:
 
 ```shell
-yarn plugin-helpers dev --watch
+yarn dev --watch
 ```
 
 If not done so already,
@@ -179,17 +174,56 @@ this can be added to a (new) file `config/kibana.dev.yml` within the Kibana root
 
 Kibana can now be started as normal.
 
-## Deploy
+## Testing
 
-Build a distributable archive containing the plugin artefacts:
+### Running Tests
+
+Run all tests:
 
 ```shell
-kibana_version="8.17.1"
-yarn build --kibana-version "$kibana_version"
+yarn test
 ```
 
-Next, build a custom Kibana container image which has this plugin (along with any others you need) already installed.
-The example [Dockerfile](Dockerfile) correctly installs this plugin as layer onto top of the standard Kibana image:
+Run tests in watch mode (re-runs on file changes):
+
+```shell
+yarn test:watch
+```
+
+Generate coverage report (stored under `../../target/kibana-coverage/jest/plugins/annotator/`):
+
+```shell
+yarn test:coverage
+```
+
+### Test Structure
+
+Following standard Kibana conventions, tests are colocated with source files:
+
+* `common/*.test.ts(x)` - Utility and type validation tests
+* `public/**/*.test.tsx` - React component and plugin tests
+* `server/**/*.test.ts` - Server plugin and route tests
+
+And mocks are collated into factories:
+
+* `public/mocks.ts`
+* `server/mocks.ts`
+
+## Deploy
+
+Building, testing, packaging, and releasing is now automated within this repository.
+For more information see [.github/workflows/README.md](.github/workflows/README.md).
+
+> If testing the build process locally, build a distributable archive containing the plugin artefacts:
+> 
+> ```shell
+> kibana_version="8.19.12"
+> yarn build --kibana-version "$kibana_version"
+> ```
+
+With a plugin package already built (either downloaded from this repository's releases page or built locally),
+build a custom Kibana container image which has this plugin (along with any others you need) already installed.
+The example [Dockerfile](Dockerfile) correctly installs this plugin as layer on the standard Kibana image:
 
 ```shell
 docker build -t "kibana/kibana:${kibana_version}_custom" .
@@ -206,8 +240,6 @@ before running make sure credentials are valid and a default profile has been se
 Alternatively, when creating an image bundled with multiple custom plugins, use the distributable package.
 
 ## Design
-
-## Architecture
 
 ### UI
 
@@ -239,5 +271,5 @@ Unless stated otherwise, the contents of this repository have been released unde
 
 * Code (including any example code) under [MIT License](https://opensource.org/licenses/MIT)
 * Documentation
-  under [Open Government License v3.0](https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/)
+  under [Open Government Licence v3.0](https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/)
 * Crown Copyright 2025, National Crime Agency (NCA)

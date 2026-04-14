@@ -1,0 +1,121 @@
+#
+# Builds the plugin
+#
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+env:
+  NAME: 'annotator'
+  CI_STATS_DISABLED: 'true'
+  DEBIAN_FRONTEND: 'noninteractive'           # Indicate headless operation
+
+jobs:
+  config:
+    uses: ./.github/workflows/config.yml
+
+  check_kibana_cache:
+    needs: config
+    runs-on: ubuntu-latest
+    outputs:
+      cache-hit: ${{ steps.check.outputs.cache-hit }}
+    steps:
+    - name: Check for cached Kibana development environment
+      id: check
+      uses: actions/cache/restore@v4
+      with:
+        path: ${{ github.workspace }}/kibana_${{ needs.config.outputs.stackVersion }}
+        key: kibana-${{ needs.config.outputs.stackArch }}-${{ needs.config.outputs.stackVersion }}
+        lookup-only: true
+
+  setup_kibana:
+    needs: [config, check_kibana_cache]
+    if: needs.check_kibana_cache.outputs.cache-hit != 'true'
+    uses: ./.github/workflows/kibana.yml
+    with:
+      stackVersion: ${{ needs.config.outputs.stackVersion }}
+      stackArch: ${{ needs.config.outputs.stackArch }}
+
+  build_plugin:
+    needs: [config, check_kibana_cache, setup_kibana]
+    if: always() && !failure() && !cancelled()
+    runs-on: ubuntu-latest
+    env:
+      ES_STACK_VERSION: ${{ needs.config.outputs.stackVersion }}
+      KIBANA_DIR: ${{ github.workspace }}/kibana_${{ needs.config.outputs.stackVersion }}
+
+    steps:
+    - name: Install packages
+      run: |
+        npm install -g yarn
+        yarn config set network-timeout 100000 -g && npm config set legacy-peer-deps=true
+
+    - name: Restore cache for Kibana source repository
+      id: cache-kibana-repository
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.KIBANA_DIR }}
+        key: kibana-${{ needs.config.outputs.stackArch }}-${{ needs.config.outputs.stackVersion }}
+
+    - name: Get yarn cache directory path
+      id: yarn-cache-dir-path
+      run: echo "yarn_dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
+
+      # ~1 GB
+    - name: Restore yarn cache
+      uses: actions/cache@v4
+      id: yarn-cache
+      with:
+        path: ${{ steps.yarn-cache-dir-path.outputs.yarn_dir }}
+        key: ${{ runner.os }}-yarn-kibana-${{ env.ES_STACK_VERSION }}-${{ hashFiles('**/yarn.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-yarn-kibana-${{ env.ES_STACK_VERSION }}
+
+    - name: Checkout
+      uses: actions/checkout@v5
+      with:
+        path: plugin
+
+    - name: Move repo
+      run: mv ${GITHUB_WORKSPACE}/plugin ${{ env.KIBANA_DIR }}/plugins/${{ env.NAME }}
+
+    - name: Bootstrap plugin
+      run: |
+        source "${HOME}/.nvm/nvm.sh"
+        cd ${{ env.KIBANA_DIR }}/plugins/${{ env.NAME }}
+        nvm install && nvm use
+        yarn install
+
+    - name: Lint
+      continue-on-error: true
+      run: |
+        source "${HOME}/.nvm/nvm.sh"
+        cd ${{ env.KIBANA_DIR }}/plugins/${{ env.NAME }}
+        nvm install && nvm use
+        node ../../scripts/eslint .
+
+    - name: Build plugin
+      run: |
+        source "${HOME}/.nvm/nvm.sh"
+        cd ${{ env.KIBANA_DIR }}/plugins/${{ env.NAME }}
+        nvm install && nvm use
+        yarn build --kibana-version "${{ env.ES_STACK_VERSION }}"
+
+    - name: Generate coverage report
+      run: |
+        source "${HOME}/.nvm/nvm.sh"
+        cd ${{ env.KIBANA_DIR }}/plugins/${{ env.NAME }}
+        nvm install && nvm use
+        yarn test:coverage
+
+    - name: Upload artefacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ${{ env.NAME }}-plugin-${{ env.ES_STACK_VERSION }}
+        path: ${{ env.KIBANA_DIR }}/plugins/${{ env.NAME }}/build/*.zip
+        compression-level: 0
