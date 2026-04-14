@@ -1,7 +1,7 @@
 {
   "id": "annotator",
   "configPath": "annotator",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "kibanaVersion": "kibana",
   "owner": {
     "name": "d221155 @ NCA",
@@ -10,7 +10,9 @@
   "description": "Manage document annotations directly within Kibana Discover tables",
   "server": true,
   "ui": true,
-  "requiredBundles": ["kibanaReact"],
+  "requiredBundles": [
+    "kibanaReact"
+  ],
   "requiredPlugins": [
     "dataViewFieldEditor",
     "features",
