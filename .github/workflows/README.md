@@ -103,17 +103,39 @@ Entry point for version management and the full release chain. Triggered manuall
 
 **Jobs:**
 
-1. **Bump** — Orchestrates the complete release sequence:
+1. **Bump** — Updates version numbers and pushes to main:
    - If `version`: updates `package.json` and `kibana.json`
    - If `stackVersion`: updates `config.yml`, `Dockerfile`, `push-image.sh`, and `README.md`,
      replacing all occurrences of the previous stack version
    - Commits with a message reflecting what changed and pushes to `main`
-   - If `version`: **waits for `plugin.yml` to pass** — the tag is never pushed if CI fails
-   - If `version`: pushes `vx.y.z` tag (triggering `release.yml`)
+   - Provides instructions for manual tagging after CI passes
 
-> **Branch protection:** if your branch protection rules prevent `GITHUB_TOKEN`
-> from pushing directly to `main`, create a fine-grained PAT with
-> *Contents: Read and write* and store it as a repository secret named `RELEASE_PAT`.
+**⚠️ Important Limitation:**
+
+GitHub Actions workflows triggered by the default `GITHUB_TOKEN` **cannot trigger other workflows**
+(security feature to prevent infinite loops). This means `plugin.yml` won't automatically run after
+the version bump push.
+
+**Solutions:**
+
+1. **Option A: Manual tagging** (current default):
+   - After version-bump.yml completes, manually check that CI passes
+   - Then manually create and push the git tag:
+     ```bash
+     git fetch origin main && git checkout main && git pull
+     git tag v1.2.0
+     git push origin v1.2.0
+     ```
+   - This triggers `release.yml`
+
+2. **Option B: Use a Personal Access Token**:
+   - Create a fine-grained PAT with `Contents: Read and write` + `Workflows: Read and write`
+   - Store it as repository secret `RELEASE_PAT`
+   - Workflow will automatically trigger CI and create tag after CI passes
+   - Best for automated releases
+
+> **Branch protection:** If your branch rules prevent `GITHUB_TOKEN` from pushing to `main`,
+> you **must** use Option B (RELEASE_PAT).
 
 ### Release (`release.yml`)
 
@@ -151,8 +173,8 @@ entry so `kibana.yml` clones and bootstraps the new version fresh on the next ru
 
 ## Creating a Release
 
-Since this project uses Conventional Commits, release notes and version bumps are
-**fully automated**. No manual tagging or file editing required.
+Since this project uses Conventional Commits, release notes are **fully automated**.
+Version bumping requires a few manual steps due to GitHub Actions security limitations.
 
 1. **Ensure all commits on `main` follow conventional commits format.**
 
@@ -165,16 +187,30 @@ Since this project uses Conventional Commits, release notes and version bumps ar
    ```
    Or via the Actions tab: select **Version Bump** → **Run workflow** → enter the inputs.
 
-3. **The workflow handles everything automatically:**
-   - Updates `package.json` and `kibana.json` with the new version
-   - Commits and pushes to `main`
-   - Waits for CI to pass
-   - Pushes the `v1.2.0` tag
-   - The release workflow then creates the GitHub release with grouped change notes
-     and the plugin zip attached
+3. **Wait for the version bump workflow to complete.**
+   It will update `package.json`, `kibana.json`, and other files, then push to `main`.
 
-4. **Monitor progress** in the Actions tab across the three triggered workflows:
-   `version-bump.yml` → `plugin.yml` → `release.yml`
+4. **Verify CI passes:**
+   - Check if `plugin.yml` automatically started (if you have `RELEASE_PAT` configured)
+   - If not, manually trigger `plugin.yml` on the `main` branch via Actions tab
+   - Wait for it to complete successfully
+
+5. **Create and push the git tag:**
+   ```bash
+   git fetch origin main
+   git checkout main
+   git pull origin main
+   git tag v1.2.0
+   git push origin v1.2.0
+   ```
+
+6. **The release workflow automatically triggers** when the tag is pushed:
+   - Downloads the plugin zip from the CI run
+   - Generates release notes from conventional commits
+   - Creates the GitHub release with the zip attached
+
+7. **Monitor progress** in the Actions tab:
+   `version-bump.yml` → (manual CI check) → (manual tag) → `release.yml`
 
 **Release Notes Example:**
 
@@ -219,6 +255,26 @@ yarn test:coverage
 ```
 
 ## Troubleshooting
+
+### CI Doesn't Trigger After Version Bump
+
+**Problem:** After `version-bump.yml` pushes to `main`, `plugin.yml` doesn't automatically start.
+
+**Cause:** GitHub Actions workflows triggered by the default `GITHUB_TOKEN` cannot trigger other workflows (security feature).
+
+**Solutions:**
+
+1. **Manual trigger** (simplest):
+   - Go to Actions tab → Select `CI` workflow
+   - Click "Run workflow" → Select `main` branch → Run
+   - Wait for it to pass, then manually create the git tag
+
+2. **Set up RELEASE_PAT** (automated):
+   - Create a fine-grained Personal Access Token:
+     - Permissions: `Contents: Read and write` + `Workflows: Read and write`
+     - Repository access: Select your repository
+   - Add as repository secret: `RELEASE_PAT`
+   - Next run will automatically trigger CI and create tags
 
 ### Kibana Cache Miss
 

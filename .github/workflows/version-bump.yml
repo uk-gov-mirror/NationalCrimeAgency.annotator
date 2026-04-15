@@ -83,39 +83,34 @@ jobs:
         git commit -m "${COMMIT_MSG}"
         git push origin main
 
-    - name: Wait for CI to pass
+    # Note: If using GITHUB_TOKEN, the push above won't trigger plugin.yml automatically.
+    # You'll need to either:
+    # 1. Set up a RELEASE_PAT secret (see workflow comments above), OR
+    # 2. Manually trigger the CI workflow after this completes, OR
+    # 3. Tag manually after verifying CI passed
+
+    - name: Instructions for next steps
       if: inputs.version != ''
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         COMMIT_SHA=$(git rev-parse HEAD)
-        echo "Waiting for plugin.yml CI run on commit ${COMMIT_SHA}..."
-
-        for i in $(seq 1 30); do
-          RUN_ID=$(gh run list \
-            --workflow=plugin.yml \
-            --commit "${COMMIT_SHA}" \
-            --limit 1 \
-            --json databaseId \
-            --jq '.[0].databaseId')
-
-          if [ ! -z "$RUN_ID" ]; then
-            echo "Found CI run ${RUN_ID}, waiting for completion..."
-            gh run watch "${RUN_ID}" --exit-status
-            echo "CI passed."
-            exit 0
-          fi
-
-          echo "CI run not yet registered, retrying in 10s... (${i}/30)"
-          sleep 10
-        done
-
-        echo "Timed out waiting for CI run to appear."
-        exit 1
-
-    - name: Create and push tag
-      if: inputs.version != ''
-      run: |
-        git tag "v${{ inputs.version }}"
-        git push origin "v${{ inputs.version }}"
-        echo "Tagged v${{ inputs.version }} — release workflow will now run."
+        echo "✓ Version bump committed and pushed to main (commit: ${COMMIT_SHA})"
+        echo ""
+        echo "⚠️  IMPORTANT: Manual steps required to complete release:"
+        echo ""
+        echo "1. Check if CI is running (wait ~1-2 minutes for it to start):"
+        echo "   https://github.com/${{ github.repository }}/actions/workflows/plugin.yml"
+        echo ""
+        echo "2. If CI doesn't start automatically (GITHUB_TOKEN limitation):"
+        echo "   - Option A: Set up RELEASE_PAT secret (see workflow file comments)"
+        echo "   - Option B: Manually run plugin.yml workflow on 'main' branch"
+        echo ""
+        echo "3. After CI passes successfully, create and push the git tag:"
+        echo "   git fetch origin main"
+        echo "   git checkout main"
+        echo "   git pull origin main"
+        echo "   git tag v${{ inputs.version }}"
+        echo "   git push origin v${{ inputs.version }}"
+        echo ""
+        echo "4. The release workflow will automatically trigger when you push the tag."
+        echo ""
+        echo "Version bumped to: ${{ inputs.version }}"
